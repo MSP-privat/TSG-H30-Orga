@@ -3,17 +3,38 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <script src="env.js"></script>
-  <script>(function(){try{if(('serviceWorker'in navigator)&&(/localhost|127\.0\.0\.1/.test(location.hostname))){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));caches&&caches.keys&&caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));}}catch(e){}})();</script><link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="assets/club_logo.png">
+
+  <!-- Runtime-Config (Supabase) -->
+  <script src="/env.js"></script>
+
+  <!-- Manifest & Icons -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/assets/club_logo.png">
   <meta name="theme-color" content="#1e5c94"/>
+
   <title>TSG Herren 30 Organisation</title>
-  <link rel="stylesheet" href="styles/style.css">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/styles/style.css">
+
+  <!-- Supabase SDK (vor deiner App laden) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+
+  <!-- In DEV: SW & Cache auf localhost deaktivieren -->
+  <script>
+    (function () {
+      try {
+        if (('serviceWorker' in navigator) && (/localhost|127\.0\.0\.1/.test(location.hostname))) {
+          navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
+          caches && caches.keys && caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
 
-  <!-- Login-Screen: initial SICHTBAR -->
+  <!-- Login-Screen (initial sichtbar) -->
   <div id="auth-screen" class="auth-screen" style="max-width:420px;margin:10vh auto;padding:24px;border:1px solid #ddd;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.08);background:#fff;">
     <h2 style="margin-top:0;margin-bottom:16px;">Anmeldung</h2>
 
@@ -38,10 +59,10 @@
     </details>
   </div>
 
-  <!-- App: initial VERSTECKT, wird nach Login angezeigt -->
+  <!-- App (wird nach Login eingeblendet) -->
   <div id="app-root" class="hidden">
-<header class="app-header">
-      <img src="assets/club_logo.png" alt="Vereinslogo" class="logo">
+    <header class="app-header">
+      <img src="/assets/club_logo.png" alt="Vereinslogo" class="logo">
       <h1>TSG Herren 30 Organisation</h1>
       <div class="user-bar" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
         <span id="role-badge" class="badge">Gast</span>
@@ -60,10 +81,12 @@
       document.getElementById('year').textContent = new Date().getFullYear();
     </script>
 
-    <script type="module" src="scripts/app.offline.js"></script>
+    <!-- Deine App (Modul) – wird NACH Supabase SDK geladen -->
+    <script type="module" src="/scripts/app.offline.js"></script>
 
+    <!-- Offline-Banner: reine Info (keine lokale Speicherung mehr) -->
     <div id="offline-banner" style="display:none;position:fixed;left:0;right:0;bottom:0;padding:.6rem 1rem;background:#ffecd1;color:#663c00;border-top:1px solid #f7c77a;font-family:system-ui;z-index:9999">
-      Du bist gerade offline. Änderungen werden lokal gespeichert und später synchronisiert.
+      Du bist offline. Änderungen sind derzeit nicht möglich.
     </div>
     <script>
       function updateOnlineStatus(){
@@ -75,19 +98,22 @@
       window.addEventListener('offline', updateOnlineStatus);
       updateOnlineStatus();
     </script>
+
+    <!-- Service Worker: am Root registrieren, damit volle Scope -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(console.error);
+          navigator.serviceWorker.register('/sw.js').catch(console.error);
         });
       }
     </script>
   </div><!-- /app-root -->
 
-  <script src="./scripts/auth.js" defer></script>
-  <script src="./scripts/role-guard.js" defer></script>
-  <script src="./scripts/boot-auth.js" defer></script>
-  <script src="./scripts/inspector.js" defer></script>
+  <!-- Auth/Boot/Inspector -->
+  <script src="/scripts/auth.js" defer></script>
+  <script src="/scripts/role-guard.js" defer></script>
+  <script src="/scripts/boot-auth.js" defer></script>
+  <script src="/scripts/inspector.js" defer></script>
 
-\1
+</body>
 </html>

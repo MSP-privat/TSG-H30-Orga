@@ -1,5 +1,5 @@
 
-import {DB, uuid} from './db.remote.js';
+import {DB, uuid} from './db.js';
 
 // Season helpers
 export async function getCurrentSeasonId(){

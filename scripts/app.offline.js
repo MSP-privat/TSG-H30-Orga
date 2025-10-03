@@ -1,5 +1,5 @@
 import {h, clear, fmtDate} from './ui.js';
-import {DB, uuid} from './db.remote.js';
+import {DB, uuid} from './db.js';
 import {
   listPlayersSorted, listTeams, listGames, listAssignments,
   canAssignPlayerOnDate, applyFestspielenColors, upsertPlayer, upsertTeam, upsertGame,
