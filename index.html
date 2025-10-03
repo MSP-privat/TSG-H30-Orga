@@ -8,7 +8,48 @@
   <script src="/env.js"></script>
 
   <!-- Manifest & Icons -->
-  <link rel="manifest" href="/manifest.webmanifest">
+  <script id="inline-manifest" type="application/json">
+{
+  "name": "TSG Tennis – Spielkoordination",
+  "short_name": "TSG Tennis",
+  "description": "PWA zur Spielkoordination & Erfassung – online & offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0b6bcb",
+  "icons": [
+    { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/assets/icons/icon-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/assets/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    { "src": "/assets/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "form_factor": "narrow" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "form_factor": "wide" }
+  ],
+  "shortcuts": [
+    { "name": "Neue Begegnung", "url": "/#neue-begegnung" },
+    { "name": "Spieler:innen", "url": "/#spieler" }
+  ]
+}
+</script>
+<script>
+(function(){
+  try {
+    var el = document.getElementById('inline-manifest');
+    if (!el) return;
+    var blob = new Blob([el.textContent], { type: 'application/manifest+json' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = url;
+    document.head.appendChild(link);
+  } catch(e) { console.warn('Inline manifest failed', e); }
+})();
+</script>
+
   <link rel="icon" href="/assets/club_logo.png">
   <meta name="theme-color" content="#1e5c94"/>
 
