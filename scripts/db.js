@@ -1,6 +1,5 @@
 // scripts/db.js
-// Supabase-Adapter (Cloud) anstelle von IndexedDB.
-// ALLE Aufrufe der App an DB.getAll/get/put/delete gehen hierdurch zu Supabase.
+// Supabase-Adapter (Cloud). Robust bei Booleans & CamelCase↔Snake_case.
 
 export function uuid() {
   if (crypto?.randomUUID) return crypto.randomUUID();
@@ -25,7 +24,16 @@ function tableFor(store){
   return t;
 }
 
-// ---- Mapper: UI -> DB (camelCase -> snake_case)
+// ------- Helpers -------
+function toBool(v) {
+  if (typeof v === 'boolean') return v;
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return ['1','true','on','yes','ja','y','checked'].includes(s);
+}
+function nz(v, alt) { return v == null ? alt : v; }
+
+// ---- Mapper: UI -> DB (camelCase -> snake_case) ----
 function toDb(store, o){
   if(!o) return o;
   switch(store){
@@ -33,20 +41,25 @@ function toDb(store, o){
       return {
         id: o.id ?? undefined,
         name: o.name,
-        year: o.year,
-        active: o.active ?? true,
+        year: Number(o.year),
+        active: toBool(nz(o.active, true)),
         created_at: o.created_at ?? undefined
       };
-    case 'teams':
+    case 'teams': {
+      // verschiedene UI-Keys zulassen:
+      const lockableRaw    = o.lockable ?? o.festspielenMoeglich ?? o['festspielen_moeglich'];
+      const enforceRaw     = o.enforce_lock ?? o.enforceLock ?? o.festspielenAktiv ?? o['festspielen_aktiv'];
+      const colorRaw       = o.lock_color ?? o.lockColor ?? null;
       return {
         id: o.id ?? undefined,
         season_id: o.season_id ?? o.seasonId,
         name: o.name,
-        lockable: o.lockable ?? true,
-        enforce_lock: o.enforce_lock ?? o.enforceLock ?? true,
-        lock_color: o.lock_color ?? o.lockColor ?? null,
+        lockable: toBool(nz(lockableRaw, true)),
+        enforce_lock: toBool(nz(enforceRaw, true)),
+        lock_color: colorRaw,
         created_at: o.created_at ?? undefined
       };
+    }
     case 'players':
       return {
         id: o.id ?? undefined,
@@ -77,7 +90,7 @@ function toDb(store, o){
         player_id: o.player_id ?? o.playerId,
         date: o.date,
         status: o.status,
-        finalized: o.finalized ?? false,
+        finalized: toBool(nz(o.finalized, false)),
         created_at: o.created_at ?? undefined,
         updated_at: o.updated_at ?? undefined
       };
@@ -86,7 +99,7 @@ function toDb(store, o){
         id: o.id ?? undefined,
         season_id: o.season_id ?? o.seasonId,
         text: o.text,
-        amount: o.amount ?? 0,
+        amount: Number(nz(o.amount, 0)),
         created_at: o.created_at ?? undefined
       };
     case 'meta':
@@ -96,22 +109,30 @@ function toDb(store, o){
   }
 }
 
-// ---- Mapper: DB -> UI (snake_case -> camelCase)
+// ---- Mapper: DB -> UI (snake_case -> camelCase) ----
 function fromDb(store, r){
   if(!r) return r;
   switch(store){
     case 'seasons':
-      return { id: r.id, name: r.name, year: r.year, active: r.active, created_at: r.created_at };
+      return { id: r.id, name: r.name, year: r.year, active: !!r.active, created_at: r.created_at };
     case 'teams':
-      return { id: r.id, seasonId: r.season_id, name: r.name, lockable: r.lockable, enforceLock: r.enforce_lock, lockColor: r.lock_color, created_at: r.created_at };
+      return {
+        id: r.id, seasonId: r.season_id, name: r.name,
+        lockable: !!r.lockable,            // UI-Keys, die dein Code evtl. erwartet:
+        festspielenMoeglich: !!r.lockable, // Alias (Forms)
+        enforceLock: !!r.enforce_lock,
+        festspielenAktiv: !!r.enforce_lock, // Alias (Forms)
+        lockColor: r.lock_color ?? null,
+        created_at: r.created_at
+      };
     case 'players':
       return { id: r.id, seasonId: r.season_id, firstName: r.first_name, lastName: r.last_name, lk: r.lk, color: r.color, created_at: r.created_at, updated_at: r.updated_at };
     case 'games':
       return { id: r.id, seasonId: r.season_id, teamId: r.team_id, date: r.date, time: r.time, location: r.location, created_at: r.created_at };
     case 'assignments':
-      return { id: r.id, seasonId: r.season_id, teamId: r.team_id, gameId: r.game_id, playerId: r.player_id, date: r.date, status: r.status, finalized: r.finalized, created_at: r.created_at, updated_at: r.updated_at };
+      return { id: r.id, seasonId: r.season_id, teamId: r.team_id, gameId: r.game_id, playerId: r.player_id, date: r.date, status: r.status, finalized: !!r.finalized, created_at: r.created_at, updated_at: r.updated_at };
     case 'penalties':
-      return { id: r.id, seasonId: r.season_id, text: r.text, amount: r.amount, created_at: r.created_at };
+      return { id: r.id, seasonId: r.season_id, text: r.text, amount: Number(r.amount ?? 0), created_at: r.created_at };
     case 'meta':
       return { key: r.key, value: r.value };
     default:
