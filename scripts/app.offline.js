@@ -1,7 +1,7 @@
 import {h, clear, fmtDate} from './ui.js';
-import {DB, uuid} from './db.js';
+import {DB, uuid} from './db.remote.js';
 import {
-  seedOnce, listPlayersSorted, listTeams, listGames, listAssignments,
+  listPlayersSorted, listTeams, listGames, listAssignments,
   canAssignPlayerOnDate, applyFestspielenColors, upsertPlayer, upsertTeam, upsertGame,
   upsertAssignment, listSeasons, getCurrentSeasonId, setCurrentSeasonId,
   deleteAssignment, deletePlayerCascade, deleteTeamCascade, deleteGameCascade,
@@ -553,7 +553,6 @@ async function __startAppOnce(){
   if(window.__APP_BOOTED__) return;
   window.__APP_BOOTED__ = true;
   try{
-    await seedOnce();
     await ensureSeasonHeader();
     renderDashboard();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
