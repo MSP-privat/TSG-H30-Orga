@@ -285,6 +285,58 @@ async function viewGames(container, filter = 'all') {
   const players = await listPlayersSorted('asc');
   const allAss = await listAssignments();
 
+// ➜ In app.offline.js, INNEN in viewGames(...), z.B. direkt nach den const-Deklarationen
+async function editGame(g) {
+  const teams = await listTeams();
+  const isNew = !g || !g.id;
+
+  if (!g) {
+    g = {
+      id: uuid(),
+      date: new Date().toISOString().slice(0,10),
+      time: '14:00',
+      teamId: teams[0]?.id || null,
+      location: ''
+    };
+  }
+
+  const dlg = document.createElement('dialog');
+  dlg.innerHTML = `
+    <form method="dialog" class="card" style="min-width:320px">
+      <h3>${isNew ? 'Spiel anlegen' : 'Spiel bearbeiten'}</h3>
+      <label>Datum</label>
+      <input id="date" type="date" value="${(g.date||'').slice(0,10)}" required />
+      <label>Uhrzeit</label>
+      <input id="time" type="time" value="${g.time || '14:00'}" required />
+      <label>Mannschaft</label>
+      <select id="team" required>
+        ${teams.map(t => `<option value="${t.id}" ${g.teamId===t.id?'selected':''}>${t.name}</option>`).join('')}
+      </select>
+      <label>Ort</label>
+      <input id="loc" value="${(g.location||'').replace(/"/g,'&quot;')}" />
+      <menu>
+        <button value="cancel" class="btn btn-secondary">Abbrechen</button>
+        <button value="ok" class="btn">Speichern</button>
+      </menu>
+    </form>`;
+  document.body.appendChild(dlg);
+  dlg.showModal();
+
+  dlg.addEventListener('close', async () => {
+    if (dlg.returnValue === 'ok') {
+      g.date    = dlg.querySelector('#date').value;
+      g.time    = dlg.querySelector('#time').value;
+      g.teamId  = dlg.querySelector('#team').value;
+      g.location= dlg.querySelector('#loc').value.trim();
+      await upsertGame(g);
+      await recomputeLocksAndEnforce();
+      viewGames(container); // neu rendern ohne Full-Page-Reload
+    }
+    dlg.remove();
+  }, { once:true });
+}
+
+
   for (const g of games) {
     const wrap = h('div', { class: 'card' });
     const teamName = teams.find(t => t.id === g.teamId)?.name || 'Unbekannt';
