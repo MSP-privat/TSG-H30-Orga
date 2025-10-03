@@ -1,0 +1,46 @@
+
+:root{--blue:#1e5c94;--yellow:#ffd400;--grey:#f2f4f7;--text:#0b2540}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;background:var(--grey);color:var(--text)}
+.app-header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--blue);color:#fff;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+.logo{width:48px;height:48px;border-radius:8px;background:white;padding:4px}
+.season-bar{display:flex;gap:8px;align-items:center;margin-left:auto}
+.season-bar select{padding:8px;border-radius:8px;border:1px solid #cbd5e1}
+.app-footer{padding:12px 16px;text-align:center;color:#456;background:white;border-top:1px solid #e3e8ef}
+.btn{border:none;border-radius:10px;padding:10px 14px;cursor:pointer;background:var(--blue);color:white;font-weight:600}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-secondary{background:var(--yellow);color:#003b6b}
+.btn-danger{background:#b91c1c;color:#fff}
+.card{background:white;border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.06);border:1px solid #e3e8ef;margin:12px 8px}
+.grid{display:grid;gap:14px}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hidden{display:none}
+.tabbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 8px}
+.tab{padding:10px 14px;border-radius:999px;border:1px solid #cbd5e1;background:white;cursor:pointer}
+.tab.active{background:var(--yellow);border-color:#facc15}
+input,select{padding:10px;border-radius:10px;border:1px solid #cbd5e1;width:100%}
+label{font-weight:600;font-size:.95rem;margin-top:8px;display:block}
+table{width:100%;border-collapse:collapse}
+.table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden}
+.table th,.table td{padding:10px;border-bottom:1px solid #e3e8ef;text-align:left}
+.color-box{width:18px;height:18px;border-radius:4px;border:1px solid #cbd5e1;display:inline-block;vertical-align:middle}
+.status{padding:2px 8px;border-radius:999px;font-weight:700}
+.status.Eingeplant{background:#e0f2fe;color:#075985}
+.status.Ersatz{background:#fff7ed;color:#9a3412}
+.status.Gespielt{background:#ecfdf5;color:#065f46}
+.calendar{background:white;border-radius:12px;padding:10px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+.calendar .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.calendar .day{border:1px solid #e3e8ef;padding:8px;min-height:90px;border-radius:10px}
+.calendar .day .d{font-weight:700}
+.badge{padding:2px 6px;border-radius:8px;background:#eef2ff;color:#3730a3;font-size:.8rem}
+dialog::backdrop{background:rgba(0,0,0,.25)}
+dialog{border:none;border-radius:12px;padding:0}
+form.card menu{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+
+#gamesToolbar{display:flex;justify-content:flex-end;margin:10px 0} #gamesToolbar .btn{margin-left:8px}
+
+
+/* User bar in header */
+.user-bar .badge{background:#ffffff1a;color:#fff;border:1px solid #ffffff66}
+.app-header .btn.btn-secondary{background:var(--yellow);color:#003b6b}

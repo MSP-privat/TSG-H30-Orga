@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="env.js"></script>
+  <script>(function(){try{if(('serviceWorker'in navigator)&&(/localhost|127\.0\.0\.1/.test(location.hostname))){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));caches&&caches.keys&&caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));}}catch(e){}})();</script><link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/club_logo.png">
+  <meta name="theme-color" content="#1e5c94"/>
+  <title>TSG Herren 30 Organisation</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+</head>
+<body>
+
+  <!-- Login-Screen: initial SICHTBAR -->
+  <div id="auth-screen" class="auth-screen" style="max-width:420px;margin:10vh auto;padding:24px;border:1px solid #ddd;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.08);background:#fff;">
+    <h2 style="margin-top:0;margin-bottom:16px;">Anmeldung</h2>
+
+    <form id="login-form">
+      <label for="email">E-Mail</label>
+      <input id="email" type="email" autocomplete="username" required autofocus style="width:100%;padding:10px;margin:6px 0 12px 0;">
+      <label for="password">Kennwort</label>
+      <input id="password" type="password" autocomplete="current-password" required style="width:100%;padding:10px;margin:6px 0 16px 0;">
+      <button type="submit" style="width:100%;padding:10px;">Einloggen</button>
+    </form>
+
+    <div id="auth-msg" style="margin-top:12px;color:#b00;"></div>
+
+    <hr style="margin:20px 0;">
+    <details>
+      <summary>Neues Konto anlegen</summary>
+      <form id="signup-form" style="margin-top:12px;">
+        <input id="su-email" type="email" placeholder="E-Mail" autocomplete="username" required style="width:100%;padding:10px;margin:6px 0 12px 0;">
+        <input id="su-password" type="password" placeholder="Kennwort" autocomplete="new-password" required style="width:100%;padding:10px;margin:6px 0 16px 0;">
+        <button type="submit" style="width:100%;padding:10px;">Registrieren</button>
+      </form>
+    </details>
+  </div>
+
+  <!-- App: initial VERSTECKT, wird nach Login angezeigt -->
+  <div id="app-root" class="hidden">
+<header class="app-header">
+      <img src="assets/club_logo.png" alt="Vereinslogo" class="logo">
+      <h1>TSG Herren 30 Organisation</h1>
+      <div class="user-bar" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+        <span id="role-badge" class="badge">Gast</span>
+        <button id="logout-btn" class="btn btn-secondary">Logout</button>
+      </div>
+      <!-- Saison-Auswahl wird dynamisch ergänzt -->
+    </header>
+
+    <main id="app"></main>
+
+    <footer class="app-footer">
+      <p>&copy; <span id="year"></span> TSG Kirchlengern-Randringhausen</p>
+    </footer>
+
+    <script>
+      document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+
+    <script type="module" src="scripts/app.offline.js"></script>
+
+    <div id="offline-banner" style="display:none;position:fixed;left:0;right:0;bottom:0;padding:.6rem 1rem;background:#ffecd1;color:#663c00;border-top:1px solid #f7c77a;font-family:system-ui;z-index:9999">
+      Du bist gerade offline. Änderungen werden lokal gespeichert und später synchronisiert.
+    </div>
+    <script>
+      function updateOnlineStatus(){
+        const b = document.getElementById('offline-banner');
+        if (!b) return;
+        b.style.display = navigator.onLine ? 'none' : 'block';
+      }
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+    </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(console.error);
+        });
+      }
+    </script>
+  </div><!-- /app-root -->
+
+  <script src="./scripts/auth.js" defer></script>
+  <script src="./scripts/role-guard.js" defer></script>
+  <script src="./scripts/boot-auth.js" defer></script>
+  <script src="./scripts/inspector.js" defer></script>
+
+\1
+</html>
