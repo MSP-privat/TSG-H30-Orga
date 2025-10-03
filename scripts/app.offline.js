@@ -325,7 +325,7 @@ async function viewGames(container, filter = 'all') {
         const team = teams.find(t => t.id === g.teamId) || {};
         const d = new Date(a.date || g.date);
         const lockD = info?.date ? new Date(info.date) : null;
-        const enforceable = ['Eingeplant', 'Ersatz', 'Gespielt'].includes(a.status); // NICHT Zugesagt
+        const enforceable = ['Zugesagt', 'Eingeplant', 'Ersatz', 'Gespielt'].includes(a.status);
         const blocked = !!(enforceable && info && info.teamId !== g.teamId && team.enforceLock && lockD && d >= lockD);
         const s = blocked ? 'Gesperrt' : a.status;
 

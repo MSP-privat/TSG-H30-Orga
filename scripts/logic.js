@@ -194,7 +194,7 @@ export async function recomputeLocksAndEnforce() {
 
     const d = new Date(a.date);
     const lockD = new Date(info.date);
-    const enforceable = ['Eingeplant', 'Ersatz', 'Gespielt'].includes(a.status); // NICHT "Zugesagt"
+    const enforceable = ['Eingeplant', 'Ersatz', 'Gespielt', 'Zugesagt'].includes(a.status); 
     if (enforceable && d >= lockD) {
       if (a.status !== 'Gesperrt') {
         a.status = 'Gesperrt';
