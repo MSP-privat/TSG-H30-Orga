@@ -44,3 +44,73 @@ form.card menu{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
 /* User bar in header */
 .user-bar .badge{background:#ffffff1a;color:#fff;border:1px solid #ffffff66}
 .app-header .btn.btn-secondary{background:var(--yellow);color:#003b6b}
+
+/* === Mobile Header kompakter === */
+@media (max-width: 640px) {
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;              /* weniger Padding */
+  }
+
+  .app-header .logo {
+    height: 28px !important;         /* kleineres Logo */
+    width: auto;
+  }
+
+  .app-header h1 {
+    font-size: 18px;                 /* kleinere Schrift */
+    line-height: 1.1;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;         /* lange Titel kürzen */
+  }
+
+  .app-header .user-bar {
+    gap: 6px;
+  }
+
+  .app-header .btn,
+  .app-header button {
+    padding: 6px 10px;               /* kleinere Buttons */
+    font-size: 12px;
+  }
+
+  /* Saison-Leiste, die per JS in den Header gehängt wird */
+  .season-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;                 /* etwas näher ran */
+    flex-wrap: nowrap;               /* auf einer Zeile halten */
+  }
+
+  /* "Saison:"-Label aus Platzgründen ausblenden */
+  .season-bar > span:first-child {
+    display: none;
+  }
+
+  .season-bar select {
+    min-width: 0;
+    flex: 1;                         /* Select nimmt Restbreite */
+    padding: 6px;
+    font-size: 14px;
+  }
+
+  .season-bar .btn,
+  .season-bar button {
+    padding: 6px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* Extra-eng: auf sehr kleinen Geräten noch straffer */
+@media (max-width: 360px) {
+  .app-header h1 { font-size: 16px; }
+  .season-bar button { display: inline-block; }
+  /* Badge optional ausblenden, wenn es zu eng wird */
+  /* .app-header #role-badge { display: none; } */
+}
