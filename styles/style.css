@@ -150,3 +150,23 @@ form.card menu{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
     font-size: 14px;
   }
 }
+/* === Status-Badges ===================================================== */
+.status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* bleibt wie gehabt */
+.status.Gespielt   { background: #2ecc71; color: #fff; } /* grün */
+.status.Eingeplant { background: #3498db; color: #fff; } /* blau */
+
+/* Änderungen laut Wunsch */
+.status.Ersatz     { background: #f1c40f; color: #000; } /* GELB */
+.status.Gesperrt   { background: #e74c3c; color: #fff; } /* ROT */
+
+/* Zusage/Zugesagt ohne Hintergrund */
+.status.Zugesagt,
+.status.Zusage     { background: transparent; color: inherit; }
