@@ -114,3 +114,39 @@ form.card menu{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
   /* Badge optional ausblenden, wenn es zu eng wird */
   /* .app-header #role-badge { display: none; } */
 }
+
+/* === Mobile Menü statt Tabs === */
+.mobile-nav { display: none; }
+
+@media (max-width: 640px) {
+  .tabbar { display: none; }                /* Tabs auf Mobile ausblenden */
+  .mobile-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+  .mobile-menu-btn {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  .mobile-menu {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.1);
+    z-index: 10;
+  }
+  .mobile-menu.hidden { display: none; }
+  .mobile-menu .menu-item {
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+}
