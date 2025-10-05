@@ -6,9 +6,9 @@ import {
   upsertAssignment, listSeasons, getCurrentSeasonId, setCurrentSeasonId,
   deleteAssignment, deletePlayerCascade, deleteTeamCascade, deleteGameCascade,
   getUnavailablePlayerIdsForDate, recomputeLocksAndEnforce, deleteSeasonCascade,
-  listPenalties, upsertPenalty, deletePenalty, getTeamFundAmount, setTeamFundAmount,
-  getPlayerLockIndex
+  listPenalties, upsertPenalty, deletePenalty, getTeamFundAmount, setTeamFundAmount
 } from './logic.js';
+
 import { exportJSON, importJSON } from './offline_sync.js';
 
 const app = document.getElementById('app');
@@ -361,223 +361,223 @@ async function viewTeams(container) {
 async function viewGames(container, filter = 'all') {
   clear(container);
 
-  await recomputeLocksAndEnforce();
+  // Lokaler Fallback-Helper: bildet den Lock-Index aus den Player-Feldern
+  function buildLockIndex(players) {
+    const idx = {};
+    for (const p of players || []) {
+      // Manuelle Sperre hat Vorrang, sonst festgespielt
+      if (p?.manualBanActive && p?.manualBanTeamId) {
+        idx[p.id] = { teamId: p.manualBanTeamId, date: p.lockDate || '1900-01-01' };
+      } else if (p?.locked && p?.lockTeamId) {
+        idx[p.id] = { teamId: p.lockTeamId, date: p.lockDate || null };
+      }
+    }
+    return idx;
+  }
 
-  const allGames = (await listGames()).sort((a, b) => new Date(a.date) - new Date(b.date));
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  let games = allGames;
-  if (filter === 'future') games = allGames.filter(g => new Date(g.date) >= today);
-  else if (filter === 'past') games = allGames.filter(g => new Date(g.date) < today);
+  try {
+    // Immer zuerst Regeln neu anwenden
+    await recomputeLocksAndEnforce();
 
-  const header = h('div', { class: 'grid grid-2' },
-    h('div', {}, h('h2', {}, 'Spiele & Zuordnungen')),
-    h('div', { style: 'text-align:right' }, h('button', { class: 'btn', onclick: () => editGame() }, 'Spieltermin hinzufügen'))
-  );
-  container.appendChild(header);
+    // Daten abrufen
+    const allGames = (await listGames()).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let games = allGames;
+    if (filter === 'future') games = allGames.filter(g => new Date(g.date) >= today);
+    else if (filter === 'past') games = allGames.filter(g => new Date(g.date) < today);
 
-  const gamesToolbar = h('div', { id: 'gamesToolbar' },
-    h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'all') }, 'Alle Spiele'), ' ',
-    h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'future') }, 'Zukünftige'), ' ',
-    h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'past') }, 'Vergangene')
-  );
-  container.appendChild(gamesToolbar);
+    const header = h('div', { class: 'grid grid-2' },
+      h('div', {}, h('h2', {}, 'Spiele & Zuordnungen')),
+      h('div', { style: 'text-align:right' }, h('button', { class: 'btn', onclick: () => editGame() }, 'Spieltermin hinzufügen'))
+    );
+    container.appendChild(header);
 
-  const teams = await listTeams();
-  const players = await listPlayersSorted(); // nach ranking
-  const allAss = await listAssignments();
+    const gamesToolbar = h('div', { id: 'gamesToolbar' },
+      h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'all') }, 'Alle Spiele'), ' ',
+      h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'future') }, 'Zukünftige'), ' ',
+      h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'past') }, 'Vergangene')
+    );
+    container.appendChild(gamesToolbar);
 
-  async function editGame(g) {
-    const teams = await listTeams();
-    const isNew = !g || !g.id;
+    const teams   = await listTeams();
+    const players = await listPlayersSorted('asc');
+    const allAss  = await listAssignments();
 
-    if (!g) {
-      g = {
-        id: uuid(),
-        date: new Date().toISOString().slice(0,10),
-        time: '14:00',
-        teamId: teams[0]?.id || null,
-        location: ''
-      };
+    // Dialog "Spiel anlegen/bearbeiten" (lokal in viewGames)
+    async function editGame(g) {
+      const tms = await listTeams();
+      const isNew = !g || !g.id;
+      if (!g) {
+        g = { id: uuid(), date: new Date().toISOString().slice(0, 10), time: '14:00', teamId: tms[0]?.id || null, location: '' };
+      }
+      const dlg = document.createElement('dialog');
+      dlg.innerHTML = `
+        <form method="dialog" class="card" style="min-width:320px">
+          <h3>${isNew ? 'Spiel anlegen' : 'Spiel bearbeiten'}</h3>
+          <label>Datum</label>
+          <input id="date" type="date" value="${(g.date || '').slice(0, 10)}" required />
+          <label>Uhrzeit</label>
+          <input id="time" type="time" value="${g.time || '14:00'}" required />
+          <label>Mannschaft</label>
+          <select id="team" required>
+            ${tms.map(t => `<option value="${t.id}" ${g.teamId === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
+          </select>
+          <label>Ort</label>
+          <input id="loc" value="${(g.location || '').replace(/"/g, '&quot;')}" />
+          <menu>
+            <button value="cancel" class="btn btn-secondary">Abbrechen</button>
+            <button value="ok" class="btn">Speichern</button>
+          </menu>
+        </form>`;
+      document.body.appendChild(dlg);
+      dlg.showModal();
+      dlg.addEventListener('close', async () => {
+        if (dlg.returnValue === 'ok') {
+          g.date     = dlg.querySelector('#date').value;
+          g.time     = dlg.querySelector('#time').value;
+          g.teamId   = dlg.querySelector('#team').value;
+          g.location = dlg.querySelector('#loc').value.trim();
+          await upsertGame(g);
+          await recomputeLocksAndEnforce();
+          viewGames(container);
+        }
+        dlg.remove();
+      }, { once: true });
     }
 
-    const dlg = document.createElement('dialog');
-    dlg.innerHTML = `
-      <form method="dialog" class="card" style="min-width:320px">
-        <h3>${isNew ? 'Spiel anlegen' : 'Spiel bearbeiten'}</h3>
-        <label>Datum</label>
-        <input id="date" type="date" value="${(g.date||'').slice(0,10)}" required />
-        <label>Uhrzeit</label>
-        <input id="time" type="time" value="${g.time || '14:00'}" required />
-        <label>Mannschaft</label>
-        <select id="team" required>
-          ${teams.map(t => `<option value="${t.id}" ${g.teamId===t.id?'selected':''}>${t.name}</option>`).join('')}
-        </select>
-        <label>Ort</label>
-        <input id="loc" value="${(g.location||'').replace(/"/g,'&quot;')}" />
-        <menu>
-          <button value="cancel" class="btn btn-secondary">Abbrechen</button>
-          <button value="ok" class="btn">Speichern</button>
-        </menu>
-      </form>`;
-    document.body.appendChild(dlg);
-    dlg.showModal();
+    for (const g of games) {
+      const wrap = h('div', { class: 'card' });
+      const teamName = teams.find(t => t.id === g.teamId)?.name || 'Unbekannt';
+      wrap.append(h('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:12px' },
+        h('div', {}, h('h3', {}, `${fmtDate(g.date)} ${g.time || ''} – ${teamName}`), h('span', { class: 'badge' }, `${g.location || 'Heim/Auswärts nicht gesetzt'}`)),
+        h('div', {},
+          h('button', { class: 'btn btn-secondary', onclick: () => editGame(g) }, 'Bearbeiten'),
+          ' ',
+          h('div', { 'data-role': 'admin' },
+            h('button', { class: 'btn btn-danger', onclick: () => deleteGame(g.id) }, 'Spiel löschen')
+          )
+        )
+      ));
 
-    dlg.addEventListener('close', async () => {
-      if (dlg.returnValue === 'ok') {
-        g.date    = dlg.querySelector('#date').value;
-        g.time    = dlg.querySelector('#time').value;
-        g.teamId  = dlg.querySelector('#team').value;
-        g.location= dlg.querySelector('#loc').value.trim();
-        await upsertGame(g);
+      const unavailable = await getUnavailablePlayerIdsForDate(g.date);
+      const listBox = h('div', {}); wrap.appendChild(listBox);
+
+      let these = allAss.filter(a => a.gameId === g.id);
+      async function reloadThese() {
+        const fresh = await listAssignments();
+        these = fresh.filter(a => a.gameId === g.id);
+      }
+
+      const lockIndex = buildLockIndex(players); // <— statt getPlayerLockIndex()
+
+      function renderAssignments() {
+        const table = h('table', { class: 'table' });
+        table.append(h('tr', {}, h('th', {}, 'Spieler'), h('th', {}, 'Nr.'), h('th', {}, 'Status'), h('th', {}, 'Aktion')));
+
+        for (const a of these.sort((a, b) => {
+          const pa = players.find(p => p.id === a.playerId), pb = players.find(p => p.id === b.playerId);
+          const ra = Number.isFinite(pa?.ranking) ? pa.ranking : 9999;
+          const rb = Number.isFinite(pb?.ranking) ? pb.ranking : 9999;
+          if (ra !== rb) return ra - rb;
+          return (pa?.lastName || '').localeCompare(pb?.lastName || '', 'de');
+        })) {
+          const p = players.find(x => x.id === a.playerId); if (!p) continue;
+          const info = lockIndex[p.id] || null;
+          const team = teams.find(t => t.id === g.teamId) || {};
+          const d = new Date(a.date || g.date);
+          const lockD = info?.date ? new Date(info.date) : null;
+          const enforceable = ['Zugesagt', 'Eingeplant', 'Ersatz', 'Gespielt'].includes(a.status);
+          const blocked = !!(enforceable && info && info.teamId !== g.teamId && team.enforceLock && lockD && d >= lockD);
+          const s = blocked ? 'Gesperrt' : a.status;
+
+          table.appendChild(h('tr', {},
+            h('td', {}, `${p.firstName} ${p.lastName}`),
+            h('td', {}, (Number.isFinite(p.ranking) ? p.ranking : '—')),
+            h('td', {}, h('span', { class: `status ${s}` }, s)),
+            h('td', {},
+              h('button', { class: 'btn btn-secondary', onclick: () => changeStatus(a) }, 'Status ändern'),
+              ' ',
+              h('div', { 'data-role': 'admin' },
+                h('button', { class: 'btn btn-danger', onclick: () => removeAssign(a.id) }, 'Entfernen')
+              )
+            )
+          ));
+        }
+        return table;
+      }
+
+      const availablePlayers = players.filter(p => !unavailable.has(p.id));
+      const selector = h('div', { class: 'grid grid-3' },
+        h('div', {}, h('label', {}, 'Spieler auswählen'),
+          h('select', { id: `selP-${g.id}` },
+            ...availablePlayers.map(p => h('option', { value: p.id }, `Nr. ${Number.isFinite(p.ranking)?p.ranking:'—'} – ${p.firstName} ${p.lastName}`))
+          )
+        ),
+        h('div', {}, h('label', {}, 'Status'), h('select', { id: `selS-${g.id}` },
+          h('option', { value: 'Zugesagt', selected: true }, 'Zugesagt'),
+          h('option', { value: 'Eingeplant' }, 'Eingeplant'),
+          h('option', { value: 'Ersatz' }, 'Ersatz/Einwechslung'),
+          h('option', { value: 'Gespielt' }, 'Gespielt'),
+          h('option', { value: 'Gesperrt' }, 'Gesperrt')
+        )),
+        h('div', { style: 'display:flex;align-items:flex-end' }, h('button', { class: 'btn', onclick: () => addAssign(g) }, 'Spieler hinzufügen'))
+      );
+
+      wrap.appendChild(selector);
+      listBox.appendChild(renderAssignments());
+      container.appendChild(wrap);
+
+      async function addAssign(gm) {
+        const sel = document.getElementById(`selP-${gm.id}`);
+        if (!sel || !sel.value) { alert('Kein Spieler verfügbar oder ausgewählt.'); return; }
+        const playerId = sel.value;
+        const status = document.getElementById(`selS-${gm.id}`).value || 'Zugesagt';
+        if (!await canAssignPlayerOnDate(playerId, gm.date)) {
+          alert('Dieser Spieler ist an diesem Tag bereits in einer anderen Mannschaft eingetragen.');
+          return;
+        }
+        await upsertAssignment({ id: uuid(), gameId: gm.id, teamId: gm.teamId, playerId, status, date: gm.date, finalized: false });
         await recomputeLocksAndEnforce();
+        await applyFestspielenColors();
+        await reloadThese();
+        listBox.innerHTML = ''; listBox.appendChild(renderAssignments());
+      }
+
+      async function changeStatus(a) {
+        const next = a.status === 'Zugesagt' ? 'Eingeplant'
+          : a.status === 'Eingeplant' ? 'Ersatz'
+          : a.status === 'Ersatz' ? 'Gespielt'
+          : 'Zugesagt';
+        a.status = next;
+        await upsertAssignment(a);
+        await recomputeLocksAndEnforce();
+        await reloadThese();
+        listBox.innerHTML = ''; listBox.appendChild(renderAssignments());
+      }
+
+      async function removeAssign(id) {
+        await deleteAssignment(id);
+        await recomputeLocksAndEnforce();
+        await reloadThese();
+        listBox.innerHTML = ''; listBox.appendChild(renderAssignments());
+      }
+
+      async function deleteGame(id) {
+        if (!confirm('Spiel wirklich löschen? Zugeordnete Einsätze werden ebenfalls entfernt.')) return;
+        await deleteGameCascade(id);
         viewGames(container);
       }
-      dlg.remove();
-    }, { once:true });
-  }
-
-  for (const g of games) {
-    const wrap = h('div', { class: 'card' });
-    const teamName = teams.find(t => t.id === g.teamId)?.name || 'Unbekannt';
-    wrap.append(h('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:12px' },
-      h('div', {}, h('h3', {}, `${fmtDate(g.date)} ${g.time || ''} – ${teamName}`), h('span', { class: 'badge' }, `${g.location || 'Heim/Auswärts nicht gesetzt'}`)),
-      h('div', {},
-        h('button', { class: 'btn btn-secondary', onclick: () => editGame(g) }, 'Bearbeiten'),
-        ' ',
-        h('div', { 'data-role': 'admin' },
-          h('button', { class: 'btn btn-danger', onclick: () => deleteGame(g.id) }, 'Spiel löschen')
-        )
+    }
+  } catch (err) {
+    console.error('[viewGames] Fehler', err);
+    container.appendChild(
+      h('div', { class: 'card', style: 'border-color:#e00;color:#e00' },
+        'Fehler beim Laden der Spiele: ', String(err?.message || err)
       )
-    ));
-
-    const unavailable = await getUnavailablePlayerIdsForDate(g.date);
-    const listBox = h('div', {}); wrap.appendChild(listBox);
-
-    let these = allAss.filter(a => a.gameId === g.id);
-    async function reloadThese() {
-      const fresh = await listAssignments();
-      these = fresh.filter(a => a.gameId === g.id);
-    }
-
-    const lockIndex = getPlayerLockIndex(players);
-    const rankOf = (p) => {
-      const n = parseInt(String(p?.ranking ?? ''), 10);
-      return Number.isFinite(n) ? n : 9999;
-    };
-
-    function renderAssignments() {
-      const table = h('table', { class: 'table' });
-      table.append(h('tr', {}, h('th', {}, 'Spieler'), h('th', {}, 'Nr.'), h('th', {}, 'Status'), h('th', {}, 'Aktion')));
-
-      for (const a of these.sort((a, b) => {
-        const pa = players.find(p=>p.id===a.playerId), pb = players.find(p=>p.id===b.playerId);
-        const ra = rankOf(pa), rb = rankOf(pb);
-        if (ra !== rb) return ra - rb;
-        return (pa?.lastName || '').localeCompare(pb?.lastName || '', 'de');
-      })) {
-        const p = players.find(x => x.id === a.playerId); if (!p) continue;
-
-        // Grundsperren prüfen
-        const info = lockIndex[a.playerId] || null;
-        const team = teams.find(t => t.id === g.teamId) || {};
-        const d = new Date(a.date || g.date);
-        const lockD = info?.date ? new Date(info.date) : null;
-        const enforceable = ['Zugesagt', 'Eingeplant', 'Ersatz', 'Gespielt'].includes(a.status);
-        const blockedAuto = !!(enforceable && info && info.teamId !== g.teamId && team.enforceLock && lockD && d >= lockD);
-        const blockedManual = !!(p.manualBanActive && p.manualBanTeamId === g.teamId);
-        const blocked = blockedManual || blockedAuto;
-
-        const s = blocked ? 'Gesperrt' : a.status;
-        const reason = blockedManual ? 'Manuelle Teamsperre'
-                     : blockedAuto    ? 'Automatische Sperre (festgespielt)'
-                     : '';
-
-        table.appendChild(h('tr', {},
-          h('td', {}, `${p.firstName} ${p.lastName}`),
-          h('td', {}, '' + (Number.isFinite(p.ranking) ? p.ranking : '')),
-          h('td', {}, h('span', { class: `status ${s}`, title: reason }, s)),
-          h('td', {},
-            h('button', { class: 'btn btn-secondary', onclick: () => changeStatus(a), disabled: s==='Gesperrt', title: s==='Gesperrt' ? reason : '' }, 'Status ändern'),
-            ' ',
-            h('div', { 'data-role': 'admin' },
-              h('button', { class: 'btn btn-danger', onclick: () => removeAssign(a.id) }, 'Entfernen')
-            )
-          )
-        ));
-      }
-      return table;
-    }
-
-    const availablePlayers = players.filter(p => !unavailable.has(p.id));
-
-    const selector = h('div', { class: 'grid grid-3' },
-      h('div', {}, h('label', {}, 'Spieler auswählen'),
-        h('select', { id: `selP-${g.id}` },
-          ...availablePlayers.map(p => h('option', { value: p.id }, `${p.firstName} ${p.lastName} (Nr. ${Number.isFinite(p.ranking)?p.ranking:'—'})`))
-        )
-      ),
-      h('div', {}, h('label', {}, 'Status'), h('select', { id: `selS-${g.id}` },
-        h('option', { value: 'Zugesagt', selected: true }, 'Zugesagt'),
-        h('option', { value: 'Eingeplant' }, 'Eingeplant'),
-        h('option', { value: 'Ersatz' }, 'Ersatz/Einwechslung'),
-        h('option', { value: 'Gespielt' }, 'Gespielt'),
-        h('option', { value: 'Gesperrt' }, 'Gesperrt')
-      )),
-      h('div', { style: 'display:flex;align-items:flex-end' }, h('button', { class: 'btn', onclick: () => addAssign(g) }, 'Spieler hinzufügen'))
     );
-
-    wrap.appendChild(selector);
-    listBox.appendChild(renderAssignments());
-    container.appendChild(wrap);
-
-    async function addAssign(gm) {
-      const sel = document.getElementById(`selP-${gm.id}`);
-      if (!sel || !sel.value) { alert('Kein Spieler verfügbar oder ausgewählt.'); return; }
-      const playerId = sel.value;
-      const chosen = document.getElementById(`selS-${gm.id}`).value || 'Zugesagt';
-      const pl = players.find(p=>p.id===playerId);
-
-      if (!await canAssignPlayerOnDate(playerId, gm.date)) {
-        alert('Dieser Spieler ist an diesem Tag bereits in einer anderen Mannschaft eingetragen.');
-        return;
-      }
-
-      // Wenn manuelle Sperre für dieses Team aktiv, direkt als Gesperrt setzen
-      const initialStatus = (pl && pl.manualBanActive && pl.manualBanTeamId === gm.teamId) ? 'Gesperrt' : chosen;
-
-      await upsertAssignment({ id: uuid(), gameId: gm.id, teamId: gm.teamId, playerId, status: initialStatus, date: gm.date, finalized: false });
-      await recomputeLocksAndEnforce();
-      await applyFestspielenColors();
-      await reloadThese();
-      listBox.innerHTML = ''; listBox.appendChild(renderAssignments());
-    }
-
-    async function changeStatus(a) {
-      const next = a.status === 'Zugesagt' ? 'Eingeplant'
-        : a.status === 'Eingeplant' ? 'Ersatz'
-        : a.status === 'Ersatz' ? 'Gespielt'
-        : 'Zugesagt';
-      a.status = next;
-      await upsertAssignment(a);
-      await recomputeLocksAndEnforce();
-      await reloadThese();
-      listBox.innerHTML = ''; listBox.appendChild(renderAssignments());
-    }
-
-    async function removeAssign(id) {
-      await deleteAssignment(id);
-      await recomputeLocksAndEnforce();
-      await reloadThese();
-      listBox.innerHTML = ''; listBox.appendChild(renderAssignments());
-    }
-
-    async function deleteGame(id) {
-      if (!confirm('Spiel wirklich löschen? Zugeordnete Einsätze werden ebenfalls entfernt.')) return;
-      await deleteGameCascade(id);
-      viewGames(container);
-    }
   }
 }
+
 
 /* =============================
    Kalender
