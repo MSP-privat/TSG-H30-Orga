@@ -492,7 +492,7 @@ async function viewGames(container, filter = 'all') {
 
           table.appendChild(h('tr', {},
             h('td', {}, `${p.firstName} ${p.lastName}`),
-            h('td', {}, (Number.isFinite(p.ranking) ? p.ranking : '—')),
+            h('td', {}, String(Number.isFinite(p.ranking) ? p.ranking : '—')),
             h('td', {}, h('span', { class: `status ${s}` }, s)),
             h('td', {},
               h('button', { class: 'btn btn-secondary', onclick: () => changeStatus(a) }, 'Status ändern'),
