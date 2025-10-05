@@ -135,7 +135,7 @@ export async function getUnavailablePlayerIdsForDate(date){
 }
 export async function applyFestspielenColors(){
   const teams = await listTeams();
-  const lockedIds = teams.filter(t=>t.locked).map(t=>t.id);
+  const lockedIds = teams.filter(t=>t.lockable).map(t=>t.id);
   const as = await listAssignments();
   const cnt = {};
   for(const a of as){

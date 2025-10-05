@@ -1,203 +1,161 @@
-// scripts/db.js
-// Supabase-Adapter (Cloud). Robust bei Booleans & CamelCase↔Snake_case.
+// /scripts/db.js
+// Zentrale DB-Abstraktion mit camelCase <-> snake_case Mapping für Supabase
+// Erwartet: window.sb (Supabase-Client), wird in auth.js erzeugt.
 
-export function uuid() {
-  if (crypto?.randomUUID) return crypto.randomUUID();
+function ensureSB(){
+  if (!window.sb) throw new Error('[DB] Supabase client (window.sb) nicht gefunden.');
+  return window.sb;
+}
+
+// UUID Helper (für Client-seitig erzeugte IDs)
+export function uuid(){
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  // Fallback
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
-    const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8);
+    const r = Math.random()*16|0, v = c==='x'? r : (r&0x3|0x8);
     return v.toString(16);
   });
 }
 
-function tableFor(store){
-  const map = {
-    seasons:'seasons',
-    players:'players',
-    teams:'teams',
-    games:'games',
-    assignments:'assignments',
-    penalties:'penalties',
-    meta:'meta',
-  };
-  const t = map[store];
-  if(!t) throw new Error(`Unknown store: ${store}`);
-  return t;
-}
-
-// ------- Helpers -------
-function toBool(v) {
-  if (typeof v === 'boolean') return v;
-  if (v == null) return false;
-  const s = String(v).trim().toLowerCase();
-  return ['1','true','on','yes','ja','y','checked'].includes(s);
-}
-function nz(v, alt) { return v == null ? alt : v; }
-
-// ---- Mapper: UI -> DB (camelCase -> snake_case) ----
-function toDb(store, o){
-  if(!o) return o;
-  switch(store){
-    case 'seasons':
-      return {
-        id: o.id ?? undefined,
-        name: o.name,
-        year: Number(o.year),
-        active: toBool(nz(o.active, true)),
-        created_at: o.created_at ?? undefined
-      };
-    case 'teams': {
-      // verschiedene UI-Keys zulassen:
-      const lockableRaw    = o.lockable ?? o.festspielenMoeglich ?? o['festspielen_moeglich'];
-      const enforceRaw     = o.enforce_lock ?? o.enforceLock ?? o.festspielenAktiv ?? o['festspielen_aktiv'];
-      const colorRaw       = o.lock_color ?? o.lockColor ?? null;
-      return {
-        id: o.id ?? undefined,
-        season_id: o.season_id ?? o.seasonId,
-        name: o.name,
-        lockable: toBool(nz(lockableRaw, true)),
-        enforce_lock: toBool(nz(enforceRaw, true)),
-        lock_color: colorRaw,
-        created_at: o.created_at ?? undefined
-      };
-    }
-    case 'players':
-      return {
-        id: o.id ?? undefined,
-        season_id: o.season_id ?? o.seasonId,
-        first_name: o.first_name ?? o.firstName ?? null,
-        last_name: o.last_name ?? o.lastName ?? null,
-        lk: o.lk ?? null,
-        color: o.color ?? null,
-        created_at: o.created_at ?? undefined,
-        updated_at: o.updated_at ?? undefined
-      };
-    case 'games':
-      return {
-        id: o.id ?? undefined,
-        season_id: o.season_id ?? o.seasonId,
-        team_id: o.team_id ?? o.teamId,
-        date: o.date,
-        time: o.time,
-        location: o.location ?? null,
-        created_at: o.created_at ?? undefined
-      };
-    case 'assignments':
-      return {
-        id: o.id ?? undefined,
-        season_id: o.season_id ?? o.seasonId,
-        team_id: o.team_id ?? o.teamId,
-        game_id: o.game_id ?? o.gameId,
-        player_id: o.player_id ?? o.playerId,
-        date: o.date,
-        status: o.status,
-        finalized: toBool(nz(o.finalized, false)),
-        created_at: o.created_at ?? undefined,
-        updated_at: o.updated_at ?? undefined
-      };
-    case 'penalties':
-      return {
-        id: o.id ?? undefined,
-        season_id: o.season_id ?? o.seasonId,
-        text: o.text,
-        amount: Number(nz(o.amount, 0)),
-        created_at: o.created_at ?? undefined
-      };
-    case 'meta':
-      return { key: o.key, value: o.value ?? {} };
-    default:
-      return o;
+// Feld-Mapping je Tabelle: camelCase -> snake_case
+const FIELD_MAP = {
+  players: {
+    id: 'id',
+    seasonId: 'season_id',
+    firstName: 'first_name',
+    lastName: 'last_name',
+    lk: 'lk',
+    color: 'color',
+    ranking: 'ranking',
+    lockTeamId: 'lock_team_id',
+    locked: 'locked',
+    lockDate: 'lock_date',
+    manualBanTeamId: 'manual_ban_team_id',
+    manualBanActive: 'manual_ban_active'
+  },
+  teams: {
+    id: 'id',
+    seasonId: 'season_id',
+    name: 'name',
+    lockable: 'lockable',
+    enforceLock: 'enforce_lock',
+    lockColor: 'lock_color'
+  },
+  games: {
+    id: 'id',
+    seasonId: 'season_id',
+    date: 'date',
+    time: 'time',
+    teamId: 'team_id',
+    location: 'location',
+    notes: 'notes'
+  },
+  assignments: {
+    id: 'id',
+    seasonId: 'season_id',
+    gameId: 'game_id',
+    teamId: 'team_id',
+    playerId: 'player_id',
+    status: 'status',
+    date: 'date',
+    finalized: 'finalized'
+  },
+  penalties: {
+    id: 'id',
+    seasonId: 'season_id',
+    text: 'text',
+    amount: 'amount'
+  },
+  seasons: {
+    id: 'id',
+    name: 'name',
+    year: 'year',
+    active: 'active'
+  },
+  meta: {
+    key: 'key',
+    value: 'value'
   }
-}
+};
 
-// ---- Mapper: DB -> UI (snake_case -> camelCase) ----
-function fromDb(store, r){
-  if(!r) return r;
-  switch(store){
-    case 'seasons':
-      return { id: r.id, name: r.name, year: r.year, active: !!r.active, created_at: r.created_at };
-    case 'teams':
-      return {
-        id: r.id, seasonId: r.season_id, name: r.name,
-        lockable: !!r.lockable,            // UI-Keys, die dein Code evtl. erwartet:
-        festspielenMoeglich: !!r.lockable, // Alias (Forms)
-        enforceLock: !!r.enforce_lock,
-        festspielenAktiv: !!r.enforce_lock, // Alias (Forms)
-        lockColor: r.lock_color ?? null,
-        created_at: r.created_at
-      };
-    case 'players':
-      return { id: r.id, seasonId: r.season_id, firstName: r.first_name, lastName: r.last_name, lk: r.lk, color: r.color, created_at: r.created_at, updated_at: r.updated_at };
-    case 'games':
-      return { id: r.id, seasonId: r.season_id, teamId: r.team_id, date: r.date, time: r.time, location: r.location, created_at: r.created_at };
-    case 'assignments':
-      return { id: r.id, seasonId: r.season_id, teamId: r.team_id, gameId: r.game_id, playerId: r.player_id, date: r.date, status: r.status, finalized: !!r.finalized, created_at: r.created_at, updated_at: r.updated_at };
-    case 'penalties':
-      return { id: r.id, seasonId: r.season_id, text: r.text, amount: Number(r.amount ?? 0), created_at: r.created_at };
-    case 'meta':
-      return { key: r.key, value: r.value };
-    default:
-      return r;
+// snake_case -> camelCase (Rückweg)
+function invertMap(map){
+  const inv = {};
+  for (const k of Object.keys(map)) inv[map[k]] = k;
+  return inv;
+}
+const FIELD_MAP_INV = Object.fromEntries(
+  Object.entries(FIELD_MAP).map(([t, m]) => [t, invertMap(m)])
+);
+
+// Record für Supabase vorbereiten (nur gemappte Felder)
+function toDbRecord(table, obj){
+  const map = FIELD_MAP[table];
+  if (!map) return obj;
+  const out = {};
+  for (const [ck, sk] of Object.entries(map)){
+    if (obj[ck] !== undefined) out[sk] = obj[ck];
   }
+  return out;
 }
 
-async function mustSb(){
-  const sb = window.sb || (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY
-    ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
-    : null);
-  if (!sb) throw new Error('[DB] Supabase client not available (not logged in?)');
-  return sb;
+// Record aus Supabase zurück auf camelCase mappen
+function fromDbRecord(table, row){
+  const map = FIELD_MAP_INV[table];
+  if (!map) return row;
+  const out = {};
+  for (const [sk, val] of Object.entries(row)){
+    const ck = map[sk] || sk;
+    out[ck] = val;
+  }
+  return out;
+}
+
+async function selectAll(table){
+  const sb = ensureSB();
+  const { data, error } = await sb.from(table).select('*');
+  if (error) throw error;
+  return (data||[]).map(r => fromDbRecord(table, r));
+}
+
+async function selectOne(table, key){
+  const sb = ensureSB();
+  if (table === 'meta'){
+    const { data, error } = await sb.from('meta').select('*').eq('key', key).maybeSingle();
+    if (error) throw error;
+    return data ? fromDbRecord('meta', data) : null;
+  }
+  // default: by id
+  const { data, error } = await sb.from(table).select('*').eq('id', key).maybeSingle();
+  if (error) throw error;
+  return data ? fromDbRecord(table, data) : null;
+}
+
+async function upsert(table, obj){
+  const sb = ensureSB();
+  const payload = toDbRecord(table, obj);
+  // Schlüssel bestimmen
+  const keyCol = table === 'meta' ? 'key' : 'id';
+  if (!payload[keyCol]){
+    // falls kein Key vorhanden, clientseitig erzeugen (außer meta)
+    if (table !== 'meta') payload[keyCol] = uuid();
+  }
+  const { data, error } = await sb.from(table).upsert(payload).select().maybeSingle();
+  if (error) throw error;
+  return data ? fromDbRecord(table, data) : fromDbRecord(table, payload);
+}
+
+async function remove(table, key){
+  const sb = ensureSB();
+  const col = table === 'meta' ? 'key' : 'id';
+  const { error } = await sb.from(table).delete().eq(col, key);
+  if (error) throw error;
+  return true;
 }
 
 export const DB = {
-  name: 'supabase',
-  version: 1,
-  async open(){ return true; },
-
-  async getAll(store){
-    const sb = await mustSb();
-    const tbl = tableFor(store);
-    const { data, error } = await sb.from(tbl).select('*').order('created_at', { ascending: true });
-    if (error) throw error;
-    return (data || []).map(r => fromDb(store, r));
-  },
-
-  async get(store, key){
-    const sb = await mustSb();
-    const tbl = tableFor(store);
-    if (store === 'meta'){
-      const { data, error } = await sb.from('meta').select('key,value').eq('key', key).maybeSingle();
-      if (error && error.code !== 'PGRST116') throw error;
-      return data ? fromDb('meta', data) : null;
-    } else {
-      const { data, error } = await sb.from(tbl).select('*').eq('id', key).maybeSingle();
-      if (error && error.code !== 'PGRST116') throw error;
-      return data ? fromDb(store, data) : null;
-    }
-  },
-
-  async put(store, obj){
-    const sb = await mustSb();
-    const tbl = tableFor(store);
-    const row = toDb(store, { ...obj });
-    if (store !== 'meta' && !row.id) row.id = uuid();
-
-    if (store === 'meta'){
-      const { data, error } = await sb.from('meta').upsert(row, { onConflict: 'key' }).select().maybeSingle();
-      if (error) throw error;
-      return fromDb('meta', data);
-    } else {
-      const { data, error } = await sb.from(tbl).upsert(row, { onConflict: 'id' }).select().maybeSingle();
-      if (error) throw error;
-      return fromDb(store, data);
-    }
-  },
-
-  async delete(store, id){
-    const sb = await mustSb();
-    const tbl = tableFor(store);
-    const col = store === 'meta' ? 'key' : 'id';
-    const { error } = await sb.from(tbl).delete().eq(col, id);
-    if (error) throw error;
-    return true;
-  }
+  async getAll(table){ return await selectAll(table); },
+  async get(table, key){ return await selectOne(table, key); },
+  async put(table, obj){ return await upsert(table, obj); },
+  async delete(table, key){ return await remove(table, key); }
 };
