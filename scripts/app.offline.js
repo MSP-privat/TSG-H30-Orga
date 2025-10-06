@@ -415,7 +415,7 @@ async function viewGames(container, filter = 'all') {
   if (filter === 'future') games = allGames.filter(g => new Date(g.date) >= today);
   else if (filter === 'past') games = allGames.filter(g => new Date(g.date) < today);
 
-  // Header + Toolbar inkl. globalem Ein-/Ausblenden + Suche
+  // ---- Toolbar: Suche nur bei Enter oder Button-Klick ----
   const searchInput = h('input', {
     id: 'gameSearch',
     type: 'search',
@@ -423,15 +423,28 @@ async function viewGames(container, filter = 'all') {
     value: GAME_SEARCH,
     style: 'min-width:220px'
   });
-  searchInput.addEventListener('input', () => {
-    GAME_SEARCH = searchInput.value || '';
+
+  const applySearch = () => {
+    GAME_SEARCH = searchInput.value.trim();
     viewGames(container, filter);
+  };
+
+  // Enter = suchen, Escape = leeren
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); applySearch(); }
+    if (e.key === 'Escape') { e.preventDefault(); searchInput.value = ''; GAME_SEARCH = ''; viewGames(container, filter); }
   });
+
+  const searchBtn = h('button', { class: 'btn', onclick: applySearch }, 'Suchen');
+  const clearBtn  = h('button', {
+    class: 'btn btn-secondary',
+    onclick: () => { searchInput.value = ''; GAME_SEARCH = ''; viewGames(container, filter); }
+  }, 'Zurücksetzen');
 
   const header = h('div', { class: 'grid grid-2' },
     h('div', {}, h('h2', {}, 'Spiele & Zuordnungen')),
     h('div', { style: 'text-align:right; display:flex; gap:.5rem; justify-content:flex-end; flex-wrap:wrap' },
-      searchInput,
+      searchInput, searchBtn, clearBtn,
       h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'all') }, 'Alle Spiele'),
       h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'future') }, 'Zukünftige'),
       h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'past') }, 'Vergangene'),
@@ -453,7 +466,7 @@ async function viewGames(container, filter = 'all') {
     const tms = await listTeams();
     const isNew = !g || !g.id;
     if (!g) {
-      g = { id: uuid(), date: toLocalISO(new Date()), time: '14:00', teamId: tms[0]?.id || null, location: '' };
+      g = { id: uuid(), date: new Date().toISOString().slice(0, 10), time: '14:00', teamId: tms[0]?.id || null, location: '' };
     }
     const dlg = document.createElement('dialog');
     dlg.innerHTML = `
@@ -529,7 +542,6 @@ async function viewGames(container, filter = 'all') {
         return text.includes(q);
       });
 
-      // Wenn weder Head noch Items matchen -> Spiel-Karte komplett überspringen
       if (!headerMatches && filteredThese.length === 0) continue;
     }
 
@@ -607,7 +619,7 @@ async function viewGames(container, filter = 'all') {
           )
         ));
       }
-      return table;
+      return h('div', { class: 'table-wrap' }, table); // mobile-scrollbar
     }
 
     const availablePlayers = players.filter(p => !unavailable.has(p.id));
@@ -643,7 +655,6 @@ async function viewGames(container, filter = 'all') {
       await recomputeLocksAndEnforce();
       await reloadThese();
 
-      // neu berechnen (inkl. Suche)
       const freshFiltered = q ? these.filter(a => {
         const p = players.find(pp => pp.id === a.playerId);
         const s = effectiveStatus(a, g, players, teams, lockIndex);
@@ -723,6 +734,7 @@ async function viewGames(container, filter = 'all') {
     }
   }
 }
+
 
 
 
