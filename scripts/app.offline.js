@@ -1,4 +1,4 @@
-import { h, clear, fmtDate } from './ui.js';
+import { h, clear, fmtDate, toLocalISO, parseISODateLocal } from './ui.js';
 import { DB, uuid } from './db.js';
 import {
   listPlayersSorted, listTeams, listGames, listAssignments,
@@ -453,7 +453,7 @@ async function viewGames(container, filter = 'all') {
     const tms = await listTeams();
     const isNew = !g || !g.id;
     if (!g) {
-      g = { id: uuid(), date: new Date().toISOString().slice(0, 10), time: '14:00', teamId: tms[0]?.id || null, location: '' };
+      g = { id: uuid(), date: toLocalISO(new Date()), time: '14:00', teamId: tms[0]?.id || null, location: '' };
     }
     const dlg = document.createElement('dialog');
     dlg.innerHTML = `
@@ -791,7 +791,7 @@ async function viewCalendar(container){
 
     // Tage rendern
     for (let d=1; d<=daysInMonth; d++){
-      const iso = new Date(ym.y, ym.m, d).toISOString().substring(0,10);
+      const iso = toLocalISO(new Date(ym.y, ym.m, d));
       const dayGames = (byDay[iso] || []).sort((a,b)=> (a.time||'').localeCompare(b.time||''));
 
       const dayBox = h('div',{class:'day'});
