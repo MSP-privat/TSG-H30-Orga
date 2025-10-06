@@ -232,7 +232,8 @@ async function viewPlayers(container){
       )
     );
   }
-  container.appendChild(table);
+  container.appendChild(h('div', { class: 'table-wrap' }, table));
+
 
   async function deletePlayer(id){
     if(!confirm('Spieler wirklich löschen? Zugeordnete Einsätze werden ebenfalls entfernt.')) return;
@@ -729,52 +730,134 @@ async function viewGames(container, filter = 'all') {
 /* =============================
    Kalender
 ============================= */
-async function viewCalendar(container) {
+async function viewCalendar(container){
   clear(container);
-  const header = h('div', { class: 'grid grid-2' },
-    h('div', {}, h('h2', {}, 'Kalender')),
-    h('div', { style: 'text-align:right' }, '')
+
+  const header = h('div',{class:'grid grid-2'},
+    h('div',{}, h('h2',{},'Kalender')),
+    h('div',{style:'text-align:right'}, '')
   );
   container.appendChild(header);
+
   const today = new Date();
   let ym = { y: today.getFullYear(), m: today.getMonth() };
 
-  const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-  const calTitle = h('div', { class: 'cal-title' }, `${months[ym.m]} ${ym.y}`);
-  const bar = h('div', { style: 'display:flex; gap:8px; align-items:center; margin:8px 0;' },
-    h('button', { class: 'btn btn-secondary', onclick: () => { ym.m--; if (ym.m < 0) { ym.m = 11; ym.y--; } render(); } }, '◀'),
+  const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const calTitle = h('div',{class:'cal-title'}, `${months[ym.m]} ${ym.y}`);
+
+  const bar = h('div',{style:'display:flex; gap:8px; align-items:center; margin:8px 0;'},
+    h('button',{class:'btn btn-secondary', onclick:()=>{ ym.m--; if(ym.m<0){ym.m=11; ym.y--; } render(); }}, '◀'),
     calTitle,
-    h('button', { class: 'btn btn-secondary', onclick: () => { ym.m++; if (ym.m > 11) { ym.m = 0; ym.y++; } render(); } }, '▶')
+    h('button',{class:'btn btn-secondary', onclick:()=>{ ym.m++; if(ym.m>11){ym.m=0; ym.y++; } render(); }}, '▶')
   );
   container.appendChild(bar);
 
-  const cal = h('div', { class: 'calendar' });
-  container.appendChild(cal);
+  // getrennte Kopfzeile (Wochentage) + Grid für Tage
+  const dow  = h('div',{class:'cal-dow'});
+  const grid = h('div',{class:'cal-grid'});
+  container.appendChild(dow);
+  container.appendChild(grid);
+
   render();
 
-  async function render() {
+  async function render(){
     if (calTitle) calTitle.textContent = `${months[ym.m]} ${ym.y}`;
-    clear(cal);
+    clear(dow); clear(grid);
+
+    // Kopfzeile Wochentage
+    ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(lbl=>{
+      dow.appendChild(h('div',{class:'weekday'}, lbl));
+    });
+
+    // Monat/Starttag
     const first = new Date(ym.y, ym.m, 1);
-    const startDay = (first.getDay() + 6) % 7;
-    const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
+    const startDay = (first.getDay()+6)%7; // Montag=0
+    const daysInMonth = new Date(ym.y, ym.m+1, 0).getDate();
+
+    // Daten
     const games = await DB.getAll('games');
     const teams = await DB.getAll('teams');
-    const grid = h('div', { class: 'grid' });
-    ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].forEach(hh => grid.appendChild(h('div', { style: 'font-weight:700;text-align:center' }, hh)));
-    for (let i = 0; i < startDay; i++) grid.appendChild(h('div', {}));
-    for (let d = 1; d <= daysInMonth; d++) {
-      const iso = new Date(ym.y, ym.m, d).toISOString().substring(0, 10);
-      const dayBox = h('div', { class: 'day' }, h('div', { class: 'd' }, String(d)));
-      for (const g of games.filter(x => (x.date || '').substring(0, 10) === iso)) {
-        const t = teams.find(tt => tt.id === g.teamId);
-        dayBox.appendChild(h('div', { class: 'clickable', onclick: () => openGameDialog(g) }, `• ${g.time || ''} ${t?.name || 'Team'} (${g.location || ''})`));
+
+    // Schnellzugriff: Spiele pro ISO-Tag
+    const byDay = {};
+    for (const g of games){
+      const iso = (g.date||'').substring(0,10);
+      if (!iso) continue;
+      (byDay[iso] ||= []).push(g);
+    }
+
+    // Leere Vorspalten
+    for (let i=0;i<startDay;i++) grid.appendChild(h('div',{class:'day empty'}));
+
+    // Tage rendern
+    for (let d=1; d<=daysInMonth; d++){
+      const iso = new Date(ym.y, ym.m, d).toISOString().substring(0,10);
+      const dayGames = (byDay[iso] || []).sort((a,b)=> (a.time||'').localeCompare(b.time||''));
+
+      const dayBox = h('div',{class:'day'});
+
+      // Kopf: Datum + Count-Badge
+      const head = h('div',{class:'day-head'},
+        h('div',{class:'d'}, String(d)),
+        dayGames.length ? h('span',{class:'count-badge'}, String(dayGames.length)) : ''
+      );
+      dayBox.appendChild(head);
+
+      // Events (max. 2 Zeilen, Rest via "mehr …")
+      const eventsWrap = h('div',{class:'events'});
+      const show = dayGames.slice(0,2);
+      for (const g of show){
+        const t = teams.find(tt=>tt.id===g.teamId);
+        const line = h('div',{class:'event-line clickable', title:`${g.time||''} ${t?.name||'Team'} ${g.location||''}`, onclick:()=>openGameDialog(g)},
+          `• ${g.time||''} ${t?.name||'Team'} (${g.location||''})`
+        );
+        eventsWrap.appendChild(line);
       }
+      const more = dayGames.length - show.length;
+      if (more>0){
+        const moreBtn = h('button',{class:'more', onclick:()=>openDayDialog(iso, dayGames, teams)}, `+${more} weitere …`);
+        eventsWrap.appendChild(moreBtn);
+      }
+
+      dayBox.appendChild(eventsWrap);
       grid.appendChild(dayBox);
     }
-    cal.appendChild(grid);
+  }
+
+  // Tages-Dialog mit allen Spielen des Datums
+  function openDayDialog(iso, gamesOfDay, teams){
+    const dlg = document.createElement('dialog');
+    const title = new Date(iso).toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' });
+
+    const list = h('div',{});
+    for (const g of gamesOfDay){
+      const t = teams.find(tt=>tt.id===g.teamId);
+      list.appendChild(
+        h('div',{class:'card', style:'margin:.4rem 0;'},
+          h('div',{}, `${g.time||''} – ${t?.name||'Team'}`),
+          h('div',{style:'opacity:.8'}, g.location||''),
+          h('div', {style:'margin-top:.4rem'},
+            h('button',{class:'btn btn-secondary', onclick:()=>{ dlg.close('open'); dlg.remove(); openGameDialog(g); }}, 'Öffnen')
+          )
+        )
+      );
+    }
+
+    dlg.innerHTML = `
+      <form method="dialog" class="card" style="min-width:320px;max-width:720px">
+        <h3 style="margin-top:0">${title}</h3>
+        <div id="day-list"></div>
+        <menu>
+          <button value="cancel" class="btn btn-secondary">Schließen</button>
+        </menu>
+      </form>`;
+    document.body.appendChild(dlg);
+    dlg.querySelector('#day-list').appendChild(list);
+    dlg.showModal();
+    dlg.addEventListener('close', ()=> dlg.remove());
   }
 }
+
 
 async function openGameDialog(g) {
   const teams = await listTeams();

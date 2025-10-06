@@ -197,3 +197,97 @@ form.card menu{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
   background: #f5f5f5;
   color: #333;
 }
+
+/* Kalender-Layout */
+.cal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.cal-dow .weekday {
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Feste Kachelhöhe für Tage -> kein Strecken */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 120px; /* Höhe der Tageskacheln (anpassen: z.B. 100–140px) */
+  gap: 8px;
+}
+
+.day {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px 8px 8px;
+  background: #fff;
+  overflow: hidden; /* verhindert Strecken bei vielen Einträgen */
+}
+.day.empty { background: transparent; border: none; }
+
+.day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.day .d {
+  font-weight: 700;
+}
+.count-badge {
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.events {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-line {
+  font-size: .85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event-line.clickable { cursor: pointer; }
+
+button.more {
+  margin-top: 2px;
+  padding: 2px 6px;
+  font-size: .80rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.more:hover { background: #eef2f7; }
+
+/* --- Responsive Tabellen-Wrapper (verhindert Viewport-Overflow auf Mobile) --- */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* sanftes Scrollen auf iOS */
+}
+
+/* Tabellen behalten Desktop-Layout, sind aber auf Mobile in der Hülle scrollbar */
+@media (max-width: 640px) {
+  .table.compact-table {
+    min-width: 640px; /* erzwingt horizontales Scrollen statt Quetschen */
+  }
+  .table.compact-table th,
+  .table.compact-table td {
+    padding: 6px 8px;
+    white-space: nowrap; /* verhindert mehrzeilige Zellen, reduziert Höhe */
+  }
+}
+
+/* optional: verhindert, dass Karten durch horizontales Scrollen „springen“ */
+.card .table-wrap { margin: 0 -4px; padding: 0 4px; }
