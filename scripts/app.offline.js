@@ -15,6 +15,7 @@ const app = document.getElementById('app');
 
 // Globaler Toggle: Spielerlisten in "Spiele" standardmäßig ausgeblendet
 let SHOW_ALL_PLAYERS = false;
+let GAME_SEARCH = '';
 
 
 // ==== iOS/Standalone-Erkennung + Reload-Utilities ====
@@ -380,7 +381,7 @@ async function viewTeams(container) {
 async function viewGames(container, filter = 'all') {
   clear(container);
 
-  // Lokaler Helper: baut Lock-Index aus Spielerfeldern
+  // Lock-Index aus Spielerfeldern
   function buildLockIndex(players) {
     const idx = {};
     for (const p of players || []) {
@@ -413,16 +414,26 @@ async function viewGames(container, filter = 'all') {
   if (filter === 'future') games = allGames.filter(g => new Date(g.date) >= today);
   else if (filter === 'past') games = allGames.filter(g => new Date(g.date) < today);
 
-  // Header + Toolbar inkl. globalem Ein-/Ausblenden
+  // Header + Toolbar inkl. globalem Ein-/Ausblenden + Suche
+  const searchInput = h('input', {
+    id: 'gameSearch',
+    type: 'search',
+    placeholder: 'Suche (Nr., Name, Team, Ort, Status …)',
+    value: GAME_SEARCH,
+    style: 'min-width:220px'
+  });
+  searchInput.addEventListener('input', () => {
+    GAME_SEARCH = searchInput.value || '';
+    viewGames(container, filter);
+  });
+
   const header = h('div', { class: 'grid grid-2' },
     h('div', {}, h('h2', {}, 'Spiele & Zuordnungen')),
-    h('div', { style: 'text-align:right' },
+    h('div', { style: 'text-align:right; display:flex; gap:.5rem; justify-content:flex-end; flex-wrap:wrap' },
+      searchInput,
       h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'all') }, 'Alle Spiele'),
-      ' ',
       h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'future') }, 'Zukünftige'),
-      ' ',
       h('button', { class: 'btn btn-secondary', onclick: () => viewGames(container, 'past') }, 'Vergangene'),
-      ' ',
       h('button', {
         class: 'btn',
         onclick: () => { SHOW_ALL_PLAYERS = !SHOW_ALL_PLAYERS; viewGames(container, filter); }
@@ -432,7 +443,7 @@ async function viewGames(container, filter = 'all') {
   container.appendChild(header);
 
   const teams   = await listTeams();
-  const players = await listPlayersSorted('asc'); // nach Ranking sortiert (aus logic.js)
+  const players = await listPlayersSorted('asc');
   const allAss  = await listAssignments();
   const lockIndex = buildLockIndex(players);
 
@@ -478,25 +489,54 @@ async function viewGames(container, filter = 'all') {
     }, { once: true });
   }
 
+  const q = (GAME_SEARCH || '').toLowerCase().trim();
+
   for (const g of games) {
-    const wrap = h('div', { class: 'card' });
-
-    // Zuordnungen dieses Spiels + aktive Anzahl (nicht "Gesperrt")
-    let these = allAss.filter(a => a.gameId === g.id);
     const teamName = teams.find(t => t.id === g.teamId)?.name || 'Unbekannt';
+    const gameText = `${teamName} ${g.location||''} ${g.time||''} ${fmtDate(g.date)}`.toLowerCase();
 
-    function computeActiveCount() {
+    // Zuordnungen des Spiels
+    let these = allAss.filter(a => a.gameId === g.id);
+
+    // Vorab für Zähler (aktive != Gesperrt)
+    function computeActiveCount(allRows) {
       let cnt = 0;
-      for (const a of these) {
+      for (const a of allRows) {
         const s = effectiveStatus(a, g, players, teams, lockIndex);
         if (s !== 'Gesperrt') cnt++;
       }
       return cnt;
     }
+    const activeCountAll = computeActiveCount(these);
 
-    const activeCountSpan = h('span', { class: 'badge', id: `active-${g.id}` }, `Aktive: ${computeActiveCount()}`);
+    // Suche: filtert assignments & darf Spiel zeigen, wenn Header matcht
+    let filteredThese = these;
+    let headerMatches = false;
 
-    // Kopfzeile inkl. per-Spiel Toggle
+    if (q) {
+      headerMatches = gameText.includes(q);
+
+      filteredThese = these.filter(a => {
+        const p = players.find(pp => pp.id === a.playerId);
+        const s = effectiveStatus(a, g, players, teams, lockIndex);
+        const text = [
+          p?.firstName||'', p?.lastName||'',
+          Number.isFinite(p?.ranking) ? String(p.ranking) : '',
+          p?.lk||'',
+          s
+        ].join(' ').toLowerCase();
+        return text.includes(q);
+      });
+
+      // Wenn weder Head noch Items matchen -> Spiel-Karte komplett überspringen
+      if (!headerMatches && filteredThese.length === 0) continue;
+    }
+
+    const wrap = h('div', { class: 'card' });
+
+    const activeCountSpan  = h('span', { class: 'badge', id: `active-${g.id}` }, `Aktive: ${activeCountAll}`);
+    const matchesCountSpan = h('span', { class: 'badge subtle', id: `match-${g.id}`, style: q ? '' : 'display:none' }, `Treffer: ${filteredThese.length}`);
+
     let expanded = !!SHOW_ALL_PLAYERS;
     const toggleBtn = h('button', {
       class: 'btn btn-secondary',
@@ -513,7 +553,8 @@ async function viewGames(container, filter = 'all') {
           h('h3', {}, `${fmtDate(g.date)} ${g.time || ''} – ${teamName}`),
           h('div', { style: 'display:flex;gap:.5rem;flex-wrap:wrap' },
             h('span', { class: 'badge' }, `${g.location || 'Heim/Auswärts nicht gesetzt'}`),
-            activeCountSpan
+            activeCountSpan,
+            matchesCountSpan
           )
         ),
         h('div', {},
@@ -538,11 +579,11 @@ async function viewGames(container, filter = 'all') {
       these = fresh.filter(a => a.gameId === g.id);
     }
 
-    function renderAssignments() {
+    function renderAssignments(rows) {
       const table = h('table', { class: 'table' });
       table.append(h('tr', {}, h('th', {}, 'Spieler'), h('th', {}, 'Nr.'), h('th', {}, 'Status'), h('th', {}, 'Aktion')));
 
-      for (const a of [...these].sort((a, b) => {
+      for (const a of [...rows].sort((a, b) => {
         const pa = players.find(p => p.id === a.playerId), pb = players.find(p => p.id === b.playerId);
         const ra = Number.isFinite(pa?.ranking) ? pa.ranking : 9999;
         const rb = Number.isFinite(pb?.ranking) ? pb.ranking : 9999;
@@ -586,7 +627,7 @@ async function viewGames(container, filter = 'all') {
     );
 
     listBox.appendChild(selector);
-    listBox.appendChild(renderAssignments());
+    listBox.appendChild(renderAssignments(q ? filteredThese : these));
     container.appendChild(wrap);
 
     async function addAssign(gm) {
@@ -600,10 +641,25 @@ async function viewGames(container, filter = 'all') {
       await upsertAssignment({ id: uuid(), gameId: gm.id, teamId: gm.teamId, playerId, status, date: gm.date, finalized: false });
       await recomputeLocksAndEnforce();
       await reloadThese();
+
+      // neu berechnen (inkl. Suche)
+      const freshFiltered = q ? these.filter(a => {
+        const p = players.find(pp => pp.id === a.playerId);
+        const s = effectiveStatus(a, g, players, teams, lockIndex);
+        const text = [
+          p?.firstName||'', p?.lastName||'',
+          Number.isFinite(p?.ranking) ? String(p.ranking) : '',
+          p?.lk||'',
+          s
+        ].join(' ').toLowerCase();
+        return text.includes(q);
+      }) : these;
+
       listBox.innerHTML = '';
       listBox.appendChild(selector);
-      listBox.appendChild(renderAssignments());
-      activeCountSpan.textContent = `Aktive: ${computeActiveCount()}`;
+      listBox.appendChild(renderAssignments(freshFiltered));
+      activeCountSpan.textContent = `Aktive: ${computeActiveCount(these)}`;
+      if (q) { matchesCountSpan.style.display=''; matchesCountSpan.textContent = `Treffer: ${freshFiltered.length}`; }
     }
 
     async function changeStatus(a) {
@@ -615,20 +671,48 @@ async function viewGames(container, filter = 'all') {
       await upsertAssignment(a);
       await recomputeLocksAndEnforce();
       await reloadThese();
+
+      const freshFiltered = q ? these.filter(a2 => {
+        const p = players.find(pp => pp.id === a2.playerId);
+        const s = effectiveStatus(a2, g, players, teams, lockIndex);
+        const text = [
+          p?.firstName||'', p?.lastName||'',
+          Number.isFinite(p?.ranking) ? String(p.ranking) : '',
+          p?.lk||'',
+          s
+        ].join(' ').toLowerCase();
+        return text.includes(q);
+      }) : these;
+
       listBox.innerHTML = '';
       listBox.appendChild(selector);
-      listBox.appendChild(renderAssignments());
-      activeCountSpan.textContent = `Aktive: ${computeActiveCount()}`;
+      listBox.appendChild(renderAssignments(freshFiltered));
+      activeCountSpan.textContent = `Aktive: ${computeActiveCount(these)}`;
+      if (q) { matchesCountSpan.style.display=''; matchesCountSpan.textContent = `Treffer: ${freshFiltered.length}`; }
     }
 
     async function removeAssign(id) {
       await deleteAssignment(id);
       await recomputeLocksAndEnforce();
       await reloadThese();
+
+      const freshFiltered = q ? these.filter(a2 => {
+        const p = players.find(pp => pp.id === a2.playerId);
+        const s = effectiveStatus(a2, g, players, teams, lockIndex);
+        const text = [
+          p?.firstName||'', p?.lastName||'',
+          Number.isFinite(p?.ranking) ? String(p.ranking) : '',
+          p?.lk||'',
+          s
+        ].join(' ').toLowerCase();
+        return text.includes(q);
+      }) : these;
+
       listBox.innerHTML = '';
       listBox.appendChild(selector);
-      listBox.appendChild(renderAssignments());
-      activeCountSpan.textContent = `Aktive: ${computeActiveCount()}`;
+      listBox.appendChild(renderAssignments(freshFiltered));
+      activeCountSpan.textContent = `Aktive: ${computeActiveCount(these)}`;
+      if (q) { matchesCountSpan.style.display=''; matchesCountSpan.textContent = `Treffer: ${freshFiltered.length}`; }
     }
 
     async function deleteGame(id) {
@@ -638,6 +722,7 @@ async function viewGames(container, filter = 'all') {
     }
   }
 }
+
 
 
 

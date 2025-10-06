@@ -185,3 +185,15 @@ form.card menu{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
   border-radius: 8px;
   font-size: 0.9em;
 }
+
+/* Schlankes Suchfeld in der Spiele-Toolbar */
+#gameSearch {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.badge.subtle {
+  background: #f5f5f5;
+  color: #333;
+}
